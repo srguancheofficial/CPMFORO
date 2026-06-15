@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CPMFORO</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23e8b94f'/><text x='16' y='23' font-size='20' text-anchor='middle' font-family='Arial Black,sans-serif' font-weight='900' fill='%23111'>C</text></svg>">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%233AAEE0'/><text x='16' y='23' font-size='18' text-anchor='middle' font-family='Arial Black,sans-serif' font-weight='900' fill='white'>C</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 
 <style>
@@ -1246,6 +1246,34 @@
     }
   }
 </style>
+<script>
+  // Stubs globales — disponibles desde el primer click del HTML
+  // El script principal los sobreescribe con la versión completa
+  function toggleFaq(card) { card.classList.toggle('open'); }
+  function setLoginMode(mode) {
+    window._loginMode = mode;
+    var tl = document.getElementById('tab-login');
+    var tr = document.getElementById('tab-register');
+    var sb = document.getElementById('login-submit-btn');
+    var er = document.getElementById('login-error');
+    if (tl) tl.classList.toggle('active', mode === 'login');
+    if (tr) tr.classList.toggle('active', mode === 'register');
+    if (sb) sb.textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
+    if (er) er.textContent = '';
+  }
+  function showLogin() {
+    var ov = document.getElementById('login-overlay');
+    var s1 = document.getElementById('login-step1');
+    var s2 = document.getElementById('login-step2');
+    if (ov) ov.classList.remove('hidden');
+    if (s1) s1.style.display = '';
+    if (s2) s2.style.display = 'none';
+    setLoginMode('login');
+  }
+  function enterAsGuest() { window._enterAsGuest && window._enterAsGuest(); }
+  function openEditPanel() { window._openEditPanel && window._openEditPanel(); }
+  function closeEditPanel(e) { window._closeEditPanel && window._closeEditPanel(e); }
+</script>
 </head>
 <body>
 
@@ -1763,53 +1791,6 @@
   </div>
 </nav>
 
-
-<script>
-// ── Funciones globales tempranas (disponibles desde el primer click) ──
-// Se definen aquí para evitar ReferenceError si el CDN tarda en cargar.
-// El script principal las sobreescribirá con la versión completa.
-window.toggleFaq = function(card) { card.classList.toggle('open'); };
-window.setLoginMode = function(mode) {
-  window.loginMode = mode;
-  var tl = document.getElementById('tab-login');
-  var tr = document.getElementById('tab-register');
-  var sb = document.getElementById('login-submit-btn');
-  var er = document.getElementById('login-error');
-  if (tl) tl.classList.toggle('active', mode === 'login');
-  if (tr) tr.classList.toggle('active', mode === 'register');
-  if (sb) sb.textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
-  if (er) er.textContent = '';
-};
-window.showLogin = function() {
-  var ov = document.getElementById('login-overlay');
-  var s1 = document.getElementById('login-step1');
-  var s2 = document.getElementById('login-step2');
-  var lu = document.getElementById('login-user');
-  var lp = document.getElementById('login-pass');
-  var er = document.getElementById('login-error');
-  if (ov) ov.classList.remove('hidden');
-  if (s1) s1.style.display = '';
-  if (s2) s2.style.display = 'none';
-  if (lu) lu.value = '';
-  if (lp) lp.value = '';
-  if (er) er.textContent = '';
-  window.setLoginMode('login');
-};
-window.openEditPanel = function() {
-  var ov = document.getElementById('edit-panel-overlay');
-  if (ov) ov.classList.remove('hidden');
-};
-window.closeEditPanel = function(e) {
-  var ov = document.getElementById('edit-panel-overlay');
-  if (e && e.target !== ov) return;
-  if (ov) ov.classList.add('hidden');
-};
-window.enterAsGuest = function() {
-  // stub — el script principal la sobreescribirá
-  window.showLogin();
-};
-window.loginMode = 'login';
-</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ============================================================
@@ -2030,20 +2011,7 @@ async function saveAvatarUrl(userId, url) {
 }
 
 // ──────────────────────────────────────────────────────────
-// 7. REFRESH PERFIL
-//    Recupera los datos completos del usuario desde la BD
-//    (útil al recargar la página con sesión en sessionStorage)
-// ──────────────────────────────────────────────────────────
-
-async function refreshProfile(userId) {
-  const { data, error } = await sb.rpc('get_profile', { p_user_id: userId });
-  if (error) throw error;
-  if (!data || data.length === 0) throw new Error('Perfil no encontrado.');
-  return data[0];
-}
-
-// ──────────────────────────────────────────────────────────
-// 8. REALTIME
+// 7. REALTIME
 // ──────────────────────────────────────────────────────────
 
 let _realtimeChannel = null;
@@ -2089,8 +2057,22 @@ function unsubscribeRealtime() {
   }
 }
 
+
 // ──────────────────────────────────────────────────────────
-// 9. EXPONER GLOBALMENTE (lo usa index.html)
+// 9. REFRESH PERFIL
+// ──────────────────────────────────────────────────────────
+async function refreshProfile(userId) {
+  const { data, error } = await sb
+    .from('users')
+    .select('id, username, avatar_url, level, xp, total_messages, rango, rango_changed_at, username_changed_at, created_at')
+    .eq('id', userId)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ──────────────────────────────────────────────────────────
+// 8. EXPONER GLOBALMENTE (lo usa index.html)
 // ──────────────────────────────────────────────────────────
 window.SupaForo = {
   getSession,
@@ -2104,13 +2086,12 @@ window.SupaForo = {
   uploadAvatar,
   saveAvatarUrl,
   updateProfile,
-  refreshProfile,
   subscribeRealtime,
-  unsubscribeRealtime
+  unsubscribeRealtime,
+  refreshProfile
 };
 
   function toggleFaq(card) { card.classList.toggle('open'); }
-  window.loginMode = 'login';
 
   // ══════════════════════════════════════════════════════
   //  DOM refs  (idénticos al original)
@@ -2462,9 +2443,11 @@ window.SupaForo = {
   // ══════════════════════════════════════════════════════
   //  Login / Register modal
   // ══════════════════════════════════════════════════════
+  // loginMode usa window._loginMode inicializado en el head
+  window._loginMode = window._loginMode || 'login';
 
   function setLoginMode(mode) {
-    window.loginMode = mode;
+    window._loginMode = mode;
     document.getElementById('tab-login').classList.toggle('active',    mode === 'login');
     document.getElementById('tab-register').classList.toggle('active', mode === 'register');
     document.getElementById('login-submit-btn').textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
@@ -2575,7 +2558,7 @@ window.SupaForo = {
     btn.textContent = 'Cargando...';
 
     try {
-      if (window.loginMode === 'register') {
+      if (window._loginMode === 'register') {
         // Pasar a step 2 (sin tocar Supabase todavía)
         window._pendingReg = { user, pass };
         regAvatarFile = null;
@@ -2692,16 +2675,11 @@ window.SupaForo = {
   document.getElementById('daily-notif-btn').addEventListener('click', dismissDailyNotif);
   document.getElementById('daily-notif-close').addEventListener('click', dismissDailyNotif);
 
-  // ══════════════════════════════════════════════════════
-  //  EXPONER FUNCIONES GLOBALES (necesarias para onclick en HTML)
-  // ══════════════════════════════════════════════════════
-  window.toggleFaq      = toggleFaq;
-  window.showLogin      = showLogin;
-  window.openEditPanel  = openEditPanel;
-  window.closeEditPanel = closeEditPanel;
-  window.setLoginMode   = setLoginMode;
-  window.enterAsGuest   = enterAsGuest;
 
+  // Registrar funciones reales para que los stubs del head las puedan llamar
+  window._enterAsGuest  = enterAsGuest;
+  window._openEditPanel = openEditPanel;
+  window._closeEditPanel = closeEditPanel;
   // ══════════════════════════════════════════════════════
   //  INIT
   // ══════════════════════════════════════════════════════
@@ -2711,7 +2689,6 @@ window.SupaForo = {
     hideLogin();
     applyProfile();
     updateChatUI();
-    // Recuperar perfil completo del servidor en segundo plano
     SupaForo.refreshProfile(session.id).then(data => {
       profile = {
         username:            data.username,
@@ -2723,13 +2700,10 @@ window.SupaForo = {
         rango_changed_at:    data.rango_changed_at,
         username_changed_at: data.username_changed_at
       };
-      // Actualizar username en sesión por si cambió
       SupaForo.saveSession({ id: session.id, username: data.username });
       session.username = data.username;
       applyProfile();
-    }).catch(err => {
-      console.warn('No se pudo refrescar el perfil:', err.message);
-    });
+    }).catch(err => console.warn('No se pudo refrescar el perfil:', err.message));
     initChat();
   } else {
     showLogin();
@@ -2738,5 +2712,6 @@ window.SupaForo = {
   updateChatUI();
   checkDailyNotif();
 </script>
+
 </body>
 </html>
