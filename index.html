@@ -2465,7 +2465,6 @@ window.SupaForo = {
 
   function setLoginMode(mode) {
     window.loginMode = mode;
-    loginMode = mode;
     document.getElementById('tab-login').classList.toggle('active',    mode === 'login');
     document.getElementById('tab-register').classList.toggle('active', mode === 'register');
     document.getElementById('login-submit-btn').textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
