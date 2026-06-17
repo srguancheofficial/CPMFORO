@@ -1921,8 +1921,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!file) return;
     e.target.value = '';
     try {
-      const newUrl = await SupaForo.uploadAvatar(session.id, file, profile.avatar_url || null);
-      await SupaForo.saveAvatarUrl(session.id, newUrl);
+      const newUrl = await SupaForo.uploadAvatar(authUser.id, file, profile.avatar_url || null);
+      await SupaForo.saveAvatarUrl(authUser.id, newUrl);
       profile.avatar_url = newUrl;
       applyAvatar();
     } catch (err) {
@@ -1976,7 +1976,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const rango    = document.getElementById('input-rango').value;
     if (!username) { document.getElementById('input-username').focus(); return; }
     try {
-      const result = await SupaForo.updateProfile(session.id, username, rango);
+      const result = await SupaForo.updateProfile(authUser.id, username, rango);
       profile.username             = result.username;
       profile.rango                = result.rango;
       profile.username_changed_at  = result.username_changed_at;
@@ -2128,7 +2128,7 @@ document.addEventListener('DOMContentLoaded', function() {
     chatInput.value = '';
     chatSend.disabled = true;
     try {
-      await SupaForo.postMessage(session.id, text);
+      await SupaForo.postMessage(authUser.id, text);
       // El mensaje llegará vía Realtime → renderMessage()
       // XP/nivel se actualiza en el servidor; refrescamos localmente:
       profile.total_messages = (profile.total_messages || 0) + 1;
@@ -2233,8 +2233,8 @@ document.addEventListener('DOMContentLoaded', function() {
       // Subir avatar si eligió uno
       if (regAvatarFile) {
         try {
-          const url = await SupaForo.uploadAvatar(session.id, regAvatarFile, null);
-          await SupaForo.saveAvatarUrl(session.id, url);
+          const url = await SupaForo.uploadAvatar(authUser.id, regAvatarFile, null);
+          await SupaForo.saveAvatarUrl(authUser.id, url);
           profile.avatar_url = url;
         } catch (_) { /* avatar no crítico */ }
       }
@@ -2353,7 +2353,7 @@ document.addEventListener('DOMContentLoaded', function() {
       },
       // UPDATE en users: si es nuestro propio perfil, refrescar level badge
       (updatedUser) => {
-        if (session && updatedUser.id === session.id) {
+        if (session && updatedUser.id === authUser.id) {
           profile.level          = updatedUser.level;
           profile.total_messages = updatedUser.total_messages;
           updateLevelUI();
