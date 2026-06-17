@@ -2,13 +2,10 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CPMFORO</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%233AAEE0'/><text x='16' y='23' font-size='18' text-anchor='middle' font-family='Arial Black,sans-serif' font-weight='900' fill='white'>C</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AutoForo</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- SUPABASE CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase.js"></script>
+
 <style>
   :root {
     --azul: #3AAEE0;
@@ -1248,35 +1245,6 @@
     }
   }
 </style>
-<script>
-  window._loginMode = 'login';
-  function setLoginMode(mode) {
-    window._loginMode = mode;
-    var tl = document.getElementById('tab-login');
-    var tr = document.getElementById('tab-register');
-    var sb = document.getElementById('login-submit-btn');
-    var er = document.getElementById('login-error');
-    var rf = document.getElementById('field-username-reg');
-    if (tl) tl.classList.toggle('active', mode === 'login');
-    if (tr) tr.classList.toggle('active', mode === 'register');
-    if (sb) sb.textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
-    if (er) er.textContent = '';
-    if (rf) rf.style.display = mode === 'register' ? '' : 'none';
-  }
-  function toggleFaq(card) { card.classList.toggle('open'); }
-  function showLogin() {
-    var ov = document.getElementById('login-overlay');
-    var s1 = document.getElementById('login-step1');
-    var s2 = document.getElementById('login-step2');
-    if (ov) ov.classList.remove('hidden');
-    if (s1) s1.style.display = '';
-    if (s2) s2.style.display = 'none';
-    setLoginMode('login');
-  }
-  function enterAsGuest()    { window._fn_enterAsGuest    && window._fn_enterAsGuest();    }
-  function openEditPanel()   { window._fn_openEditPanel   && window._fn_openEditPanel();   }
-  function closeEditPanel(e) { window._fn_closeEditPanel  && window._fn_closeEditPanel(e); }
-</script>
 </head>
 <body>
 
@@ -1694,14 +1662,10 @@
       </div>
 
       <div class="login-field">
-        <label class="login-label" for="login-user">Email</label>
-        <input class="login-input" id="login-user" type="email" placeholder="tucorreo@ejemplo.com" autocomplete="email">
+        <label class="login-label" for="login-user">Nombre de usuario</label>
+        <input class="login-input" id="login-user" type="text" placeholder="Tu nombre de usuario" maxlength="24" autocomplete="off">
       </div>
 
-      <div class="login-field" id="field-username-reg" style="display:none">
-        <label class="login-label" for="login-username-reg">Nombre de usuario</label>
-        <input class="login-input" id="login-username-reg" type="text" placeholder="Ej: SpeedPedro" maxlength="24" autocomplete="off">
-      </div>
       <div class="login-field">
         <label class="login-label" for="login-pass">Contraseña</label>
         <input class="login-input" id="login-pass" type="password" placeholder="Tu contraseña" maxlength="64">
@@ -1798,10 +1762,359 @@
   </div>
 </nav>
 
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+// ── Funciones globales tempranas (disponibles desde el primer click) ──
+// Se definen aquí para evitar ReferenceError si el CDN tarda en cargar.
+// El script principal las sobreescribirá con la versión completa.
+window.toggleFaq = function(card) { card.classList.toggle('open'); };
+window.setLoginMode = function(mode) {
+  window.loginMode = mode;
+  var tl = document.getElementById('tab-login');
+  var tr = document.getElementById('tab-register');
+  var sb = document.getElementById('login-submit-btn');
+  var er = document.getElementById('login-error');
+  if (tl) tl.classList.toggle('active', mode === 'login');
+  if (tr) tr.classList.toggle('active', mode === 'register');
+  if (sb) sb.textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
+  if (er) er.textContent = '';
+};
+window.showLogin = function() {
+  var ov = document.getElementById('login-overlay');
+  var s1 = document.getElementById('login-step1');
+  var s2 = document.getElementById('login-step2');
+  var lu = document.getElementById('login-user');
+  var lp = document.getElementById('login-pass');
+  var er = document.getElementById('login-error');
+  if (ov) ov.classList.remove('hidden');
+  if (s1) s1.style.display = '';
+  if (s2) s2.style.display = 'none';
+  if (lu) lu.value = '';
+  if (lp) lp.value = '';
+  if (er) er.textContent = '';
+  window.setLoginMode('login');
+};
+window.openEditPanel = function() {
+  var ov = document.getElementById('edit-panel-overlay');
+  if (ov) ov.classList.remove('hidden');
+};
+window.closeEditPanel = function(e) {
+  var ov = document.getElementById('edit-panel-overlay');
+  if (e && e.target !== ov) return;
+  if (ov) ov.classList.add('hidden');
+};
+window.enterAsGuest = function() {
+  // stub — el script principal la sobreescribirá
+  window.showLogin();
+};
+window.loginMode = 'login';
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ============================================================
+//  supabase.js  —  AutoForo · Capa de integración Supabase
+//  Incluir ANTES del <script> principal del HTML:
+//    <script src="supabase.js"></script>
+// ============================================================
+
+// ──────────────────────────────────────────────────────────
+// 0. CONFIGURACIÓN  ←  CAMBIA ESTOS DOS VALORES
+// ──────────────────────────────────────────────────────────
+const SUPABASE_URL    = 'https://gffximqugdxsbeajzmod.supabase.co';
+const SUPABASE_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmZnhpbXF1Z2R4c2JlYWp6bW9kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNDU2MDcsImV4cCI6MjA5NjgyMTYwN30.XP-X2-5mCeeQ3e-3VHQZ_O-uA_stKHT8OEsGC91HHTA';
+
+// ──────────────────────────────────────────────────────────
+// 1. CLIENTE SUPABASE  (usa el CDN cargado en el HTML)
+// ──────────────────────────────────────────────────────────
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ──────────────────────────────────────────────────────────
+// 2. SESIÓN PERSONALIZADA
+//    Guardamos solo  { id, username }  en sessionStorage
+//    (se borra al cerrar la pestaña, más seguro que localStorage)
+// ──────────────────────────────────────────────────────────
+const SESSION_KEY = 'autoforo_session';
+
+function getSession() {
+  try { return JSON.parse(sessionStorage.getItem(SESSION_KEY)); }
+  catch { return null; }
+}
+function saveSession(data) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
+}
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+// ──────────────────────────────────────────────────────────
+// 3. AVATAR — helpers de Storage
+// ──────────────────────────────────────────────────────────
+const AVATAR_BUCKET  = 'avatars';
+const AVATAR_MAX_PX  = 480;
+
+/** Redimensiona un File a máx 480×480 y devuelve un Blob JPEG */
+async function processAvatarBlob(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const side   = Math.min(Math.min(img.width, img.height), AVATAR_MAX_PX);
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = side;
+        const ctx    = canvas.getContext('2d');
+        const src    = Math.min(img.width, img.height);
+        ctx.drawImage(
+          img,
+          (img.width  - src) / 2,
+          (img.height - src) / 2,
+          src, src, 0, 0, side, side
+        );
+        canvas.toBlob(resolve, 'image/jpeg', 0.88);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Sube un nuevo avatar, borra el anterior y devuelve la URL pública.
+ * @param {string}  userId     — UUID del usuario
+ * @param {File}    file       — archivo de imagen elegido
+ * @param {string|null} oldUrl — URL pública del avatar anterior (o null)
+ */
+async function uploadAvatar(userId, file, oldUrl) {
+  // Validar tipo
+  const allowed = ['image/jpeg','image/png','image/webp','image/jpg'];
+  if (!allowed.includes(file.type)) {
+    throw new Error('Formato no permitido. Usa JPG, PNG o WebP.');
+  }
+
+  // Borrar avatar anterior si existe
+  if (oldUrl) {
+    try {
+      const path = oldUrl.split(`/${AVATAR_BUCKET}/`)[1];  // extrae la ruta interna
+      if (path) await sb.storage.from(AVATAR_BUCKET).remove([path]);
+    } catch (_) { /* ignorar si no existe */ }
+  }
+
+  // Procesar imagen → Blob 480×480
+  const blob     = await processAvatarBlob(file);
+  const filePath = `${userId}/avatar_${Date.now()}.jpg`;
+
+  // Subir
+  const { error: upErr } = await sb.storage
+    .from(AVATAR_BUCKET)
+    .upload(filePath, blob, { contentType: 'image/jpeg', upsert: false });
+  if (upErr) throw upErr;
+
+  // URL pública
+  const { data } = sb.storage.from(AVATAR_BUCKET).getPublicUrl(filePath);
+  return data.publicUrl;
+}
+
+// ──────────────────────────────────────────────────────────
+// 4. AUTH  — registro, login, logout
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Registra un nuevo usuario.
+ * Llama a la función RPC register_user (bcrypt en servidor).
+ * @returns {Object} perfil del usuario creado
+ */
+async function registerUser(username, password, rango = '') {
+  const { data, error } = await sb.rpc('register_user', {
+    p_username: username.trim(),
+    p_password: password,
+    p_rango:    rango
+  });
+  if (error) {
+    // Mapeamos los errores del servidor a mensajes amigables
+    const msg = error.message || '';
+    if (msg.includes('USERNAME_TAKEN'))     throw new Error('Ese nombre de usuario ya existe. Elige otro.');
+    if (msg.includes('USERNAME_TOO_SHORT')) throw new Error('El nombre debe tener al menos 3 caracteres.');
+    if (msg.includes('PASSWORD_TOO_SHORT')) throw new Error('La contraseña debe tener al menos 4 caracteres.');
+    throw new Error('Error al registrar. Inténtalo de nuevo.');
+  }
+  if (!data || data.length === 0) throw new Error('Error inesperado al registrar.');
+  const user = data[0];
+  saveSession({ id: user.id, username: user.username });
+  return user;
+}
+
+/**
+ * Inicia sesión.
+ * Llama a la función RPC login_user (bcrypt en servidor).
+ * @returns {Object} perfil del usuario
+ */
+async function loginUser(username, password) {
+  const { data, error } = await sb.rpc('login_user', {
+    p_username: username.trim(),
+    p_password: password
+  });
+  if (error) {
+    const msg = error.message || '';
+    if (msg.includes('TOO_MANY_ATTEMPTS')) throw new Error('Demasiados intentos fallidos. Espera 24h para volver a intentarlo.');
+    if (msg.includes('INVALID_CREDENTIALS')) throw new Error('Usuario o contraseña incorrectos.');
+    throw new Error('Error de conexión: ' + msg);
+  }
+  if (!data || data.length === 0) throw new Error('Usuario o contraseña incorrectos.');
+  const user = data[0];
+  saveSession({ id: user.id, username: user.username });
+  return user;
+}
+
+/** Cierra la sesión local */
+function logoutUser() {
+  clearSession();
+}
+
+// ──────────────────────────────────────────────────────────
+// 5. MENSAJES
+// ──────────────────────────────────────────────────────────
+
+/** Carga los últimos 100 mensajes (orden ascendente para el chat) */
+async function loadMessages() {
+  const { data, error } = await sb
+    .from('messages')
+    .select('id, username, avatar_url, level, rango, message, created_at')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data || []).reverse();   // mostramos del más antiguo al más nuevo
+}
+
+/**
+ * Publica un mensaje. Usa la RPC post_message (security definer)
+ * para saltarse RLS y actualizar XP en el mismo paso.
+ */
+async function postMessage(userId, text) {
+  const { data, error } = await sb.rpc('post_message', {
+    p_user_id: userId,
+    p_message: text.trim()
+  });
+  if (error) {
+    if (error.message.includes('EMPTY_MESSAGE')) throw new Error('El mensaje no puede estar vacío.');
+    throw error;
+  }
+  return data[0];
+}
+
+// ──────────────────────────────────────────────────────────
+// 6. PERFIL
+// ──────────────────────────────────────────────────────────
+
+/** Actualiza username y rango via RPC (incluye cooldown en servidor) */
+async function updateProfile(userId, username, rango) {
+  const { data, error } = await sb.rpc('update_profile', {
+    p_user_id:  userId,
+    p_username: username.trim(),
+    p_rango:    rango
+  });
+  if (error) {
+    const msg = error.message || '';
+    if (msg.includes('USERNAME_COOLDOWN')) throw new Error('cooldown_username');
+    if (msg.includes('RANGO_COOLDOWN'))    throw new Error('cooldown_rango');
+    if (msg.includes('USERNAME_TAKEN'))    throw new Error('Ese nombre ya está en uso.');
+    throw new Error('Error al guardar: ' + msg);
+  }
+  return data[0];
+}
+
+/** Guarda la URL del avatar en el perfil */
+async function saveAvatarUrl(userId, url) {
+  const { error } = await sb.rpc('update_avatar_url', {
+    p_user_id:    userId,
+    p_avatar_url: url
+  });
+  if (error) throw error;
+}
+
+// ──────────────────────────────────────────────────────────
+// 7. REFRESH PERFIL
+//    Recupera los datos completos del usuario desde la BD
+//    (útil al recargar la página con sesión en sessionStorage)
+// ──────────────────────────────────────────────────────────
+
+async function refreshProfile(userId) {
+  const { data, error } = await sb.rpc('get_profile', { p_user_id: userId });
+  if (error) throw error;
+  if (!data || data.length === 0) throw new Error('Perfil no encontrado.');
+  return data[0];
+}
+
+// ──────────────────────────────────────────────────────────
+// 8. REALTIME
+// ──────────────────────────────────────────────────────────
+
+let _realtimeChannel = null;
+
+/**
+ * Suscribe al canal de mensajes y usuarios en tiempo real.
+ * @param {Function} onNewMessage   — cb({ type:'INSERT', record })
+ * @param {Function} onDeleteMessage — cb({ type:'DELETE', old_record })
+ * @param {Function} onUserUpdate   — cb(record) con perfil actualizado
+ */
+function subscribeRealtime(onNewMessage, onDeleteMessage, onUserUpdate) {
+  if (_realtimeChannel) {
+    sb.removeChannel(_realtimeChannel);
+    _realtimeChannel = null;
+  }
+
+  _realtimeChannel = sb
+    .channel('autoforo-public')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages' },
+      payload => onNewMessage && onNewMessage(payload.new)
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'messages' },
+      payload => onDeleteMessage && onDeleteMessage(payload.old)
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'users' },
+      payload => onUserUpdate && onUserUpdate(payload.new)
+    )
+    .subscribe();
+
+  return _realtimeChannel;
+}
+
+function unsubscribeRealtime() {
+  if (_realtimeChannel) {
+    sb.removeChannel(_realtimeChannel);
+    _realtimeChannel = null;
+  }
+}
+
+// ──────────────────────────────────────────────────────────
+// 9. EXPONER GLOBALMENTE (lo usa index.html)
+// ──────────────────────────────────────────────────────────
+window.SupaForo = {
+  getSession,
+  saveSession,
+  clearSession,
+  registerUser,
+  loginUser,
+  logoutUser,
+  loadMessages,
+  postMessage,
+  uploadAvatar,
+  saveAvatarUrl,
+  updateProfile,
+  refreshProfile,
+  subscribeRealtime,
+  unsubscribeRealtime
+};
 
   function toggleFaq(card) { card.classList.toggle('open'); }
+  window.loginMode = 'login';
 
   // ══════════════════════════════════════════════════════
   //  DOM refs  (idénticos al original)
@@ -1833,10 +2146,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // ══════════════════════════════════════════════════════
   //  Estado de sesión  (sessionStorage via supabase.js)
   // ══════════════════════════════════════════════════════
-  let session  = null;   // sesión de Supabase Auth
-  let authUser = null;   // user de auth.users
-  let profile  = {};     // datos de public.users
-  let isGuest  = false;
+  let session = SupaForo.getSession();   // { id, username } | null
+  let profile = {};                       // datos completos del perfil
+  let isGuest = false;
 
   // ══════════════════════════════════════════════════════
   //  Cooldowns  (ahora se calculan con datos del servidor)
@@ -1921,8 +2233,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!file) return;
     e.target.value = '';
     try {
-      const newUrl = await SupaForo.uploadAvatar(authUser.id, file, profile.avatar_url || null);
-      await SupaForo.saveAvatarUrl(authUser.id, newUrl);
+      const newUrl = await SupaForo.uploadAvatar(session.id, file, profile.avatar_url || null);
+      await SupaForo.saveAvatarUrl(session.id, newUrl);
       profile.avatar_url = newUrl;
       applyAvatar();
     } catch (err) {
@@ -1976,12 +2288,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const rango    = document.getElementById('input-rango').value;
     if (!username) { document.getElementById('input-username').focus(); return; }
     try {
-      const result = await SupaForo.updateProfile(authUser.id, username, rango);
+      const result = await SupaForo.updateProfile(session.id, username, rango);
       profile.username             = result.username;
       profile.rango                = result.rango;
       profile.username_changed_at  = result.username_changed_at;
       profile.rango_changed_at     = result.rango_changed_at;
-      // La sesión la gestiona Supabase Auth automáticamente
+      // Actualizar session con posible nuevo username
+      SupaForo.saveSession({ id: session.id, username: result.username });
+      session.username = result.username;
       applyProfile();
       refreshCooldownLabels();
       const msg = document.getElementById('profile-saved-msg');
@@ -1994,14 +2308,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  document.getElementById('logout-btn').addEventListener('click', async () => {
+  document.getElementById('logout-btn').addEventListener('click', () => {
     if (session && !isGuest) {
-      await SupaForo.logoutUser();
+      SupaForo.logoutUser();
       SupaForo.unsubscribeRealtime();
-      session  = null;
-      authUser = null;
-      isGuest  = false;
-      profile  = {};
+      session = null;
+      isGuest = false;
+      profile = {};
       showLogin();
       updateChatUI();
     } else {
@@ -2125,16 +2438,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!text) return;
     if (!profile.username) { switchTab('perfil'); return; }
 
-    // Comprobar si ha aceptado las normas
-    if (!localStorage.getItem('normas_aceptadas')) {
-      mostrarNormas(text);
-      return;
-    }
-
     chatInput.value = '';
     chatSend.disabled = true;
     try {
-      await SupaForo.postMessage(authUser.id, text);
+      await SupaForo.postMessage(session.id, text);
       // El mensaje llegará vía Realtime → renderMessage()
       // XP/nivel se actualiza en el servidor; refrescamos localmente:
       profile.total_messages = (profile.total_messages || 0) + 1;
@@ -2159,18 +2466,14 @@ document.addEventListener('DOMContentLoaded', function() {
   // ══════════════════════════════════════════════════════
   //  Login / Register modal
   // ══════════════════════════════════════════════════════
-  // loginMode gestionado por window._loginMode (definido en head)
 
   function setLoginMode(mode) {
-    window._loginMode = mode;
+    window.loginMode = mode;
+    loginMode = mode;
     document.getElementById('tab-login').classList.toggle('active',    mode === 'login');
     document.getElementById('tab-register').classList.toggle('active', mode === 'register');
     document.getElementById('login-submit-btn').textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
     document.getElementById('login-error').textContent = '';
-    const regField = document.getElementById('field-username-reg');
-    if (regField) regField.style.display = mode === 'register' ? '' : 'none';
-    const emailLabel = document.querySelector('label[for="login-user"]');
-    if (emailLabel) emailLabel.textContent = 'Email';
   }
   function showLogin() {
     loginOverlay.classList.remove('hidden');
@@ -2219,13 +2522,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
       const rango = document.getElementById('reg-rango').value;
-      const { user: pendingUser, pass: pendingPass, email: pendingEmail } = window._pendingReg || {};
-      if (!pendingUser || !pendingEmail) { errEl.textContent = 'Error de flujo, recarga la página.'; return; }
+      // pendingRegister se seteó en step 1
+      const { user: pendingUser, pass: pendingPass } = window._pendingReg || {};
+      if (!pendingUser) { errEl.textContent = 'Error de flujo, recarga la página.'; return; }
 
-      const user = await SupaForo.registerUser(pendingEmail, pendingPass, pendingUser, rango);
-      session  = await SupaForo.getSession();
-      authUser = await SupaForo.getCurrentUser();
-      profile  = {
+      const user = await SupaForo.registerUser(pendingUser, pendingPass, rango);
+      session = SupaForo.getSession();
+      profile = {
         username:            user.username,
         avatar_url:          null,
         level:               user.level,
@@ -2239,18 +2542,19 @@ document.addEventListener('DOMContentLoaded', function() {
       // Subir avatar si eligió uno
       if (regAvatarFile) {
         try {
-          const url = await SupaForo.uploadAvatar(authUser.id, regAvatarFile, null);
-          await SupaForo.saveAvatarUrl(authUser.id, url);
+          const url = await SupaForo.uploadAvatar(session.id, regAvatarFile, null);
+          await SupaForo.saveAvatarUrl(session.id, url);
           profile.avatar_url = url;
         } catch (_) { /* avatar no crítico */ }
       }
 
       window._pendingReg = null;
       regAvatarFile      = null;
-      // Mostrar modal de verificación de email
+      isGuest            = false;
       hideLogin();
-      const evOv = document.getElementById('email-verify-overlay');
-      if (evOv) evOv.style.display = 'flex';
+      applyProfile();
+      updateChatUI();
+      initChat();
     } catch (err) {
       errEl.textContent = err.message;
     } finally {
@@ -2261,16 +2565,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // ── Submit step 1 (login o pasar a step 2) ──
   document.getElementById('login-submit-btn').addEventListener('click', async () => {
-    const email    = document.getElementById('login-user').value.trim();
-    const pass     = document.getElementById('login-pass').value;
-    const username = window._loginMode === 'register' ? (document.getElementById('login-username-reg')?.value.trim() || '') : '';
-    const errEl    = document.getElementById('login-error');
+    const user  = document.getElementById('login-user').value.trim();
+    const pass  = document.getElementById('login-pass').value;
+    const errEl = document.getElementById('login-error');
     errEl.textContent = '';
 
-    if (!email || !pass) { errEl.textContent = 'Rellena todos los campos.'; return; }
-    if (!email.includes('@')) { errEl.textContent = 'Introduce un email válido.'; return; }
-    if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
-    if (window._loginMode === 'register' && username.length < 3) { errEl.textContent = 'El nombre de usuario debe tener al menos 3 caracteres.'; return; }
+    if (!user || !pass) { errEl.textContent = 'Rellena todos los campos.'; return; }
+    if (user.length < 3) { errEl.textContent = 'El nombre debe tener al menos 3 caracteres.'; return; }
+    if (pass.length < 4) { errEl.textContent = 'La contraseña debe tener al menos 4 caracteres.'; return; }
 
     const btn = document.getElementById('login-submit-btn');
     btn.disabled    = true;
@@ -2278,20 +2580,19 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.textContent = 'Cargando...';
 
     try {
-      if (window._loginMode === 'register') {
-        // Pasar a step 2 con email, pass y username
-        window._pendingReg = { user: username, pass, email };
+      if (window.loginMode === 'register') {
+        // Pasar a step 2 (sin tocar Supabase todavía)
+        window._pendingReg = { user, pass };
         regAvatarFile = null;
-        document.getElementById('reg-avatar-preview').innerHTML = getInitials(username) || '?';
+        document.getElementById('reg-avatar-preview').innerHTML = getInitials(user) || '?';
         document.getElementById('reg-rango').value   = '';
         document.getElementById('reg-error').textContent = '';
         document.getElementById('login-step1').style.display = 'none';
         document.getElementById('login-step2').style.display = '';
       } else {
-        const userData = await SupaForo.loginUser(email, pass);
-        session  = await SupaForo.getSession();
-        authUser = await SupaForo.getCurrentUser();
-        profile  = {
+        const userData = await SupaForo.loginUser(user, pass);
+        session = SupaForo.getSession();
+        profile = {
           username:            userData.username,
           avatar_url:          userData.avatar_url,
           level:               userData.level,
@@ -2358,7 +2659,7 @@ document.addEventListener('DOMContentLoaded', function() {
       },
       // UPDATE en users: si es nuestro propio perfil, refrescar level badge
       (updatedUser) => {
-        if (session && updatedUser.id === authUser.id) {
+        if (session && updatedUser.id === session.id) {
           profile.level          = updatedUser.level;
           profile.total_messages = updatedUser.total_messages;
           updateLevelUI();
@@ -2396,182 +2697,51 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('daily-notif-btn').addEventListener('click', dismissDailyNotif);
   document.getElementById('daily-notif-close').addEventListener('click', dismissDailyNotif);
 
-  // ── Normas del foro ──
-  let _pendingMsgAfterNormas = null;
-
-  function mostrarNormas(pendingText) {
-    _pendingMsgAfterNormas = pendingText || null;
-    const overlay  = document.getElementById('normas-overlay');
-    const scroll   = document.getElementById('normas-scroll');
-    const btn      = document.getElementById('normas-aceptar-btn');
-    const countdown = document.getElementById('normas-countdown');
-
-    overlay.style.display = 'flex';
-    btn.disabled = true;
-    btn.style.background = '#fff';
-    btn.style.color = '#333';
-    btn.style.cursor = 'not-allowed';
-    btn.style.opacity = '0.6';
-    btn.textContent = '';
-    const span = document.createElement('span');
-    span.id = 'normas-countdown';
-    span.textContent = '5';
-    btn.appendChild(document.createTextNode('Espera '));
-    btn.appendChild(span);
-    btn.appendChild(document.createTextNode('s'));
-
-    // Esperar a que el usuario baje hasta el final
-    let scrolledToBottom = false;
-    let countdownStarted = false;
-    let seconds = 5;
-    let timer = null;
-
-    function startCountdown() {
-      if (countdownStarted) return;
-      countdownStarted = true;
-      timer = setInterval(() => {
-        seconds--;
-        const cd = document.getElementById('normas-countdown');
-        if (cd) cd.textContent = seconds;
-        if (seconds <= 0) {
-          clearInterval(timer);
-          btn.disabled = false;
-          btn.style.background = '#3AAEE0';
-          btn.style.color = '#fff';
-          btn.style.cursor = 'pointer';
-          btn.style.opacity = '1';
-          btn.textContent = 'Aceptar';
-        }
-      }, 1000);
-    }
-
-    scroll.addEventListener('scroll', function onScroll() {
-      const atBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 30;
-      if (atBottom && !scrolledToBottom) {
-        scrolledToBottom = true;
-        startCountdown();
-        scroll.removeEventListener('scroll', onScroll);
-      }
-    });
-
-    btn.onclick = async function() {
-      if (btn.disabled) return;
-      localStorage.setItem('normas_aceptadas', '1');
-      overlay.style.display = 'none';
-      // Enviar el mensaje que estaba pendiente
-      if (_pendingMsgAfterNormas) {
-        const text = _pendingMsgAfterNormas;
-        _pendingMsgAfterNormas = null;
-        const chatInput = document.getElementById('chat-input');
-        const chatSend  = document.getElementById('chat-send');
-        if (chatInput) chatInput.value = '';
-        if (chatSend)  chatSend.disabled = true;
-        try {
-          await SupaForo.postMessage(authUser.id, text);
-          profile.total_messages = (profile.total_messages || 0) + 1;
-          if (profile.total_messages < msgsForLevel(100)) {
-            profile.level = calcLevel(profile.total_messages);
-          }
-          updateLevelUI();
-        } catch (err) {
-          alert('Error al enviar: ' + err.message);
-        } finally {
-          if (chatSend) chatSend.disabled = false;
-        }
-      }
-    };
-  }
-
-  // Registrar funciones reales para los stubs del head
-  window._fn_enterAsGuest   = typeof enterAsGuest   !== 'undefined' ? enterAsGuest   : null;
-  window._fn_openEditPanel  = typeof openEditPanel  !== 'undefined' ? openEditPanel  : null;
-  window._fn_closeEditPanel = typeof closeEditPanel !== 'undefined' ? closeEditPanel : null;
+  // ══════════════════════════════════════════════════════
+  //  EXPONER FUNCIONES GLOBALES (necesarias para onclick en HTML)
+  // ══════════════════════════════════════════════════════
+  window.toggleFaq      = toggleFaq;
+  window.showLogin      = showLogin;
+  window.openEditPanel  = openEditPanel;
+  window.closeEditPanel = closeEditPanel;
+  window.setLoginMode   = setLoginMode;
+  window.enterAsGuest   = enterAsGuest;
 
   // ══════════════════════════════════════════════════════
   //  INIT
   // ══════════════════════════════════════════════════════
-  // INIT — comprobar sesión activa de Supabase Auth
-  (async () => {
-    session  = await SupaForo.getSession();
-    authUser = await SupaForo.getCurrentUser();
-    if (session && authUser) {
-      try {
-        const p = await SupaForo.getProfile(authUser.id);
-        profile = {
-          username:            p.username,
-          avatar_url:          p.avatar_url,
-          level:               p.level,
-          xp:                  p.xp,
-          total_messages:      p.total_messages,
-          rango:               p.rango,
-          rango_changed_at:    p.rango_changed_at,
-          username_changed_at: p.username_changed_at
-        };
-        isGuest = false;
-        hideLogin();
-        applyProfile();
-        updateChatUI();
-        initChat();
-      } catch (_) {
-        showLogin();
-      }
-    } else {
-      showLogin();
-    }
+  if (session) {
+    isGuest = false;
+    profile = { username: session.username, total_messages: 0, level: 0 };
+    hideLogin();
     applyProfile();
     updateChatUI();
-    checkDailyNotif();
-  })();
-
-});
+    // Recuperar perfil completo del servidor en segundo plano
+    SupaForo.refreshProfile(session.id).then(data => {
+      profile = {
+        username:            data.username,
+        avatar_url:          data.avatar_url,
+        level:               data.level,
+        xp:                  data.xp,
+        total_messages:      data.total_messages,
+        rango:               data.rango,
+        rango_changed_at:    data.rango_changed_at,
+        username_changed_at: data.username_changed_at
+      };
+      // Actualizar username en sesión por si cambió
+      SupaForo.saveSession({ id: session.id, username: data.username });
+      session.username = data.username;
+      applyProfile();
+    }).catch(err => {
+      console.warn('No se pudo refrescar el perfil:', err.message);
+    });
+    initChat();
+  } else {
+    showLogin();
+  }
+  applyProfile();
+  updateChatUI();
+  checkDailyNotif();
 </script>
-
-
-<!-- ── MODAL NORMAS DEL FORO ── -->
-<div id="normas-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:none;align-items:center;justify-content:center;">
-  <div style="background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;max-width:560px;width:90%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6);">
-    <div style="padding:20px 24px 12px;border-bottom:1px solid #2a2a4a;flex-shrink:0;">
-      <h2 style="margin:0;color:#fff;font-size:1.2rem;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">📋 NORMAS DEL FORO</h2>
-      <p style="margin:4px 0 0;color:#888;font-size:0.8rem;">Lee las normas antes de participar en el chat.</p>
-    </div>
-    <div id="normas-scroll" style="overflow-y:auto;padding:20px 24px;flex:1;color:#ccc;font-size:0.88rem;line-height:1.7;">
-      <p><strong style="color:#fff;">Bienvenido al foro.</strong> Este espacio está creado para que la comunidad pueda compartir información, resolver dudas y disfrutar del juego en un ambiente agradable. Al participar, aceptas cumplir las siguientes normas:</p>
-      <p><strong style="color:#e8b94f;">1. Respeta a los demás usuarios</strong><br>No se permiten insultos, amenazas, acoso, discriminación ni comportamientos destinados a provocar conflictos.</p>
-      <p><strong style="color:#e8b94f;">2. Prohibido el spam</strong><br>No publiques mensajes repetitivos, publicidad no autorizada, enlaces engañosos o contenido destinado únicamente a promocionar otros servicios.</p>
-      <p><strong style="color:#e8b94f;">3. Mantén el contenido relacionado con la temática</strong><br>Publica cada tema en la categoría correspondiente y evita desviar las conversaciones hacia asuntos no relacionados.</p>
-      <p><strong style="color:#e8b94f;">4. No compartas información personal</strong><br>Por tu seguridad y la de otros usuarios, no publiques datos personales como direcciones, teléfonos, correos electrónicos o contraseñas.</p>
-      <p><strong style="color:#e8b94f;">5. Prohibido el contenido ilegal o inapropiado</strong><br>No está permitido compartir contenido ilegal, ofensivo, violento, pornográfico, malicioso o que infrinja derechos de terceros.</p>
-      <p><strong style="color:#e8b94f;">6. No suplantes a otras personas</strong><br>No te hagas pasar por otros usuarios, miembros del equipo de moderación o personas conocidas.</p>
-      <p><strong style="color:#e8b94f;">7. Utiliza un lenguaje adecuado</strong><br>Se permite el debate y la opinión, pero siempre desde el respeto y la educación.</p>
-      <p><strong style="color:#e8b94f;">8. Respeta las decisiones de moderación</strong><br>Los moderadores y administradores podrán editar, mover o eliminar contenido que incumpla las normas, así como aplicar sanciones cuando sea necesario.</p>
-      <p><strong style="color:#e8b94f;">9. Reporta los problemas</strong><br>Si encuentras contenido que incumpla las normas, utiliza las herramientas de reporte o contacta con el equipo de moderación.</p>
-      <p><strong style="color:#e8b94f;">10. Sanciones</strong><br>El incumplimiento de estas normas puede conllevar advertencias, suspensión temporal o expulsión permanente del foro, dependiendo de la gravedad de la infracción.</p>
-    </div>
-    <div style="padding:16px 24px;border-top:1px solid #2a2a4a;display:flex;justify-content:flex-end;flex-shrink:0;">
-      <button id="normas-aceptar-btn" disabled style="
-        background:#fff;color:#333;border:none;border-radius:8px;
-        padding:10px 28px;font-size:0.9rem;font-weight:700;
-        cursor:not-allowed;opacity:0.6;transition:all 0.3s;
-        font-family:'Barlow',sans-serif;
-      ">Espera <span id="normas-countdown">5</span>s</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── MODAL VERIFICACIÓN EMAIL ── -->
-<div id="email-verify-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;max-width:420px;width:90%;padding:36px 32px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.6);">
-    <div style="font-size:3rem;margin-bottom:16px;">📧</div>
-    <h2 style="color:#fff;margin:0 0 12px;font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;letter-spacing:1px;">REVISA TU EMAIL</h2>
-    <p style="color:#ccc;font-size:0.9rem;line-height:1.6;margin:0 0 24px;">Hemos enviado un enlace de verificación a tu correo. <strong style="color:#fff;">Ábrelo y confirma tu cuenta</strong> antes de iniciar sesión.</p>
-    <p style="color:#888;font-size:0.8rem;margin:0 0 24px;">Si no lo ves, revisa la carpeta de spam.</p>
-    <button onclick="document.getElementById('email-verify-overlay').style.display='none';" style="
-      background:#3AAEE0;color:#fff;border:none;border-radius:8px;
-      padding:12px 32px;font-size:0.95rem;font-weight:700;cursor:pointer;
-      font-family:'Barlow',sans-serif;width:100%;
-    ">Entendido</button>
-  </div>
-</div>
-
 </body>
 </html>
