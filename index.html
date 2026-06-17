@@ -1665,10 +1665,14 @@
       </div>
 
       <div class="login-field">
-        <label class="login-label" for="login-user">Nombre de usuario</label>
-        <input class="login-input" id="login-user" type="text" placeholder="Tu nombre de usuario" maxlength="24" autocomplete="off">
+        <label class="login-label" for="login-user">Email</label>
+        <input class="login-input" id="login-user" type="email" placeholder="tucorreo@ejemplo.com" autocomplete="email">
       </div>
 
+      <div class="login-field" id="field-username-reg" style="display:none">
+        <label class="login-label" for="login-username-reg">Nombre de usuario</label>
+        <input class="login-input" id="login-username-reg" type="text" placeholder="Ej: SpeedPedro" maxlength="24" autocomplete="off">
+      </div>
       <div class="login-field">
         <label class="login-label" for="login-pass">Contraseña</label>
         <input class="login-input" id="login-pass" type="password" placeholder="Tu contraseña" maxlength="64">
@@ -1798,9 +1802,10 @@
   // ══════════════════════════════════════════════════════
   //  Estado de sesión  (sessionStorage via supabase.js)
   // ══════════════════════════════════════════════════════
-  let session = SupaForo.getSession();   // { id, username } | null
-  let profile = {};                       // datos completos del perfil
-  let isGuest = false;
+  let session  = null;   // sesión de Supabase Auth
+  let authUser = null;   // user de auth.users
+  let profile  = {};     // datos de public.users
+  let isGuest  = false;
 
   // ══════════════════════════════════════════════════════
   //  Cooldowns  (ahora se calculan con datos del servidor)
@@ -1962,11 +1967,12 @@
 
   document.getElementById('logout-btn').addEventListener('click', () => {
     if (session && !isGuest) {
-      SupaForo.logoutUser();
+      await SupaForo.logoutUser();
       SupaForo.unsubscribeRealtime();
-      session = null;
-      isGuest = false;
-      profile = {};
+      session  = null;
+      authUser = null;
+      isGuest  = false;
+      profile  = {};
       showLogin();
       updateChatUI();
     } else {
@@ -2126,6 +2132,10 @@
     document.getElementById('tab-register').classList.toggle('active', mode === 'register');
     document.getElementById('login-submit-btn').textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
     document.getElementById('login-error').textContent = '';
+    const regField = document.getElementById('field-username-reg');
+    if (regField) regField.style.display = mode === 'register' ? '' : 'none';
+    const emailLabel = document.querySelector('label[for="login-user"]');
+    if (emailLabel) emailLabel.textContent = 'Email';
   }
   function showLogin() {
     loginOverlay.classList.remove('hidden');
@@ -2174,13 +2184,13 @@
 
     try {
       const rango = document.getElementById('reg-rango').value;
-      // pendingRegister se seteó en step 1
-      const { user: pendingUser, pass: pendingPass } = window._pendingReg || {};
-      if (!pendingUser) { errEl.textContent = 'Error de flujo, recarga la página.'; return; }
+      const { user: pendingUser, pass: pendingPass, email: pendingEmail } = window._pendingReg || {};
+      if (!pendingUser || !pendingEmail) { errEl.textContent = 'Error de flujo, recarga la página.'; return; }
 
-      const user = await SupaForo.registerUser(pendingUser, pendingPass, rango);
-      session = SupaForo.getSession();
-      profile = {
+      const user = await SupaForo.registerUser(pendingEmail, pendingPass, pendingUser, rango);
+      session  = await SupaForo.getSession();
+      authUser = await SupaForo.getCurrentUser();
+      profile  = {
         username:            user.username,
         avatar_url:          null,
         level:               user.level,
@@ -2217,14 +2227,16 @@
 
   // ── Submit step 1 (login o pasar a step 2) ──
   document.getElementById('login-submit-btn').addEventListener('click', async () => {
-    const user  = document.getElementById('login-user').value.trim();
-    const pass  = document.getElementById('login-pass').value;
-    const errEl = document.getElementById('login-error');
+    const email    = document.getElementById('login-user').value.trim();
+    const pass     = document.getElementById('login-pass').value;
+    const username = loginMode === 'register' ? (document.getElementById('login-username-reg')?.value.trim() || '') : '';
+    const errEl    = document.getElementById('login-error');
     errEl.textContent = '';
 
-    if (!user || !pass) { errEl.textContent = 'Rellena todos los campos.'; return; }
-    if (user.length < 3) { errEl.textContent = 'El nombre debe tener al menos 3 caracteres.'; return; }
-    if (pass.length < 4) { errEl.textContent = 'La contraseña debe tener al menos 4 caracteres.'; return; }
+    if (!email || !pass) { errEl.textContent = 'Rellena todos los campos.'; return; }
+    if (!email.includes('@')) { errEl.textContent = 'Introduce un email válido.'; return; }
+    if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+    if (loginMode === 'register' && username.length < 3) { errEl.textContent = 'El nombre de usuario debe tener al menos 3 caracteres.'; return; }
 
     const btn = document.getElementById('login-submit-btn');
     btn.disabled    = true;
@@ -2233,18 +2245,19 @@
 
     try {
       if (loginMode === 'register') {
-        // Pasar a step 2 (sin tocar Supabase todavía)
-        window._pendingReg = { user, pass };
+        // Pasar a step 2 con email, pass y username
+        window._pendingReg = { user: username, pass, email };
         regAvatarFile = null;
-        document.getElementById('reg-avatar-preview').innerHTML = getInitials(user) || '?';
+        document.getElementById('reg-avatar-preview').innerHTML = getInitials(username) || '?';
         document.getElementById('reg-rango').value   = '';
         document.getElementById('reg-error').textContent = '';
         document.getElementById('login-step1').style.display = 'none';
         document.getElementById('login-step2').style.display = '';
       } else {
-        const userData = await SupaForo.loginUser(user, pass);
-        session = SupaForo.getSession();
-        profile = {
+        const userData = await SupaForo.loginUser(email, pass);
+        session  = await SupaForo.getSession();
+        authUser = await SupaForo.getCurrentUser();
+        profile  = {
           username:            userData.username,
           avatar_url:          userData.avatar_url,
           level:               userData.level,
@@ -2352,20 +2365,38 @@
   // ══════════════════════════════════════════════════════
   //  INIT
   // ══════════════════════════════════════════════════════
-  if (session) {
-    // Sesión recuperada de sessionStorage → mostramos el foro
-    // (el perfil completo se recupera del servidor al primer mensaje;
-    //  para refrescar datos actualizados hacemos una mini-llamada de login-silent)
-    isGuest = false;
-    profile = { username: session.username, total_messages: 0, level: 0 };
-    hideLogin();
-    initChat();
-  } else {
-    showLogin();
-  }
-  applyProfile();
-  updateChatUI();
-  checkDailyNotif();
+  // INIT — comprobar sesión activa de Supabase Auth
+  (async () => {
+    session  = await SupaForo.getSession();
+    authUser = await SupaForo.getCurrentUser();
+    if (session && authUser) {
+      try {
+        const p = await SupaForo.getProfile(authUser.id);
+        profile = {
+          username:            p.username,
+          avatar_url:          p.avatar_url,
+          level:               p.level,
+          xp:                  p.xp,
+          total_messages:      p.total_messages,
+          rango:               p.rango,
+          rango_changed_at:    p.rango_changed_at,
+          username_changed_at: p.username_changed_at
+        };
+        isGuest = false;
+        hideLogin();
+        applyProfile();
+        updateChatUI();
+        initChat();
+      } catch (_) {
+        showLogin();
+      }
+    } else {
+      showLogin();
+    }
+    applyProfile();
+    updateChatUI();
+    checkDailyNotif();
+  })();
 </script>
 
 </body>
