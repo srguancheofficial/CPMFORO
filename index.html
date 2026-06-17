@@ -1248,6 +1248,35 @@
     }
   }
 </style>
+<script>
+  window._loginMode = 'login';
+  function setLoginMode(mode) {
+    window._loginMode = mode;
+    var tl = document.getElementById('tab-login');
+    var tr = document.getElementById('tab-register');
+    var sb = document.getElementById('login-submit-btn');
+    var er = document.getElementById('login-error');
+    var rf = document.getElementById('field-username-reg');
+    if (tl) tl.classList.toggle('active', mode === 'login');
+    if (tr) tr.classList.toggle('active', mode === 'register');
+    if (sb) sb.textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
+    if (er) er.textContent = '';
+    if (rf) rf.style.display = mode === 'register' ? '' : 'none';
+  }
+  function toggleFaq(card) { card.classList.toggle('open'); }
+  function showLogin() {
+    var ov = document.getElementById('login-overlay');
+    var s1 = document.getElementById('login-step1');
+    var s2 = document.getElementById('login-step2');
+    if (ov) ov.classList.remove('hidden');
+    if (s1) s1.style.display = '';
+    if (s2) s2.style.display = 'none';
+    setLoginMode('login');
+  }
+  function enterAsGuest()    { window._fn_enterAsGuest    && window._fn_enterAsGuest();    }
+  function openEditPanel()   { window._fn_openEditPanel   && window._fn_openEditPanel();   }
+  function closeEditPanel(e) { window._fn_closeEditPanel  && window._fn_closeEditPanel(e); }
+</script>
 </head>
 <body>
 
@@ -1950,9 +1979,7 @@
       profile.rango                = result.rango;
       profile.username_changed_at  = result.username_changed_at;
       profile.rango_changed_at     = result.rango_changed_at;
-      // Actualizar session con posible nuevo username
-      SupaForo.saveSession({ id: session.id, username: result.username });
-      session.username = result.username;
+      // La sesión la gestiona Supabase Auth automáticamente
       applyProfile();
       refreshCooldownLabels();
       const msg = document.getElementById('profile-saved-msg');
@@ -1965,7 +1992,7 @@
     }
   });
 
-  document.getElementById('logout-btn').addEventListener('click', () => {
+  document.getElementById('logout-btn').addEventListener('click', async () => {
     if (session && !isGuest) {
       await SupaForo.logoutUser();
       SupaForo.unsubscribeRealtime();
@@ -2124,10 +2151,10 @@
   // ══════════════════════════════════════════════════════
   //  Login / Register modal
   // ══════════════════════════════════════════════════════
-  let loginMode = 'login';
+  // loginMode gestionado por window._loginMode (definido en head)
 
   function setLoginMode(mode) {
-    loginMode = mode;
+    window._loginMode = mode;
     document.getElementById('tab-login').classList.toggle('active',    mode === 'login');
     document.getElementById('tab-register').classList.toggle('active', mode === 'register');
     document.getElementById('login-submit-btn').textContent = mode === 'login' ? 'Iniciar sesión' : 'Continuar';
@@ -2229,14 +2256,14 @@
   document.getElementById('login-submit-btn').addEventListener('click', async () => {
     const email    = document.getElementById('login-user').value.trim();
     const pass     = document.getElementById('login-pass').value;
-    const username = loginMode === 'register' ? (document.getElementById('login-username-reg')?.value.trim() || '') : '';
+    const username = window._loginMode === 'register' ? (document.getElementById('login-username-reg')?.value.trim() || '') : '';
     const errEl    = document.getElementById('login-error');
     errEl.textContent = '';
 
     if (!email || !pass) { errEl.textContent = 'Rellena todos los campos.'; return; }
     if (!email.includes('@')) { errEl.textContent = 'Introduce un email válido.'; return; }
     if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
-    if (loginMode === 'register' && username.length < 3) { errEl.textContent = 'El nombre de usuario debe tener al menos 3 caracteres.'; return; }
+    if (window._loginMode === 'register' && username.length < 3) { errEl.textContent = 'El nombre de usuario debe tener al menos 3 caracteres.'; return; }
 
     const btn = document.getElementById('login-submit-btn');
     btn.disabled    = true;
@@ -2244,7 +2271,7 @@
     btn.textContent = 'Cargando...';
 
     try {
-      if (loginMode === 'register') {
+      if (window._loginMode === 'register') {
         // Pasar a step 2 con email, pass y username
         window._pendingReg = { user: username, pass, email };
         regAvatarFile = null;
@@ -2361,6 +2388,11 @@
   }
   document.getElementById('daily-notif-btn').addEventListener('click', dismissDailyNotif);
   document.getElementById('daily-notif-close').addEventListener('click', dismissDailyNotif);
+
+  // Registrar funciones reales para los stubs del head
+  window._fn_enterAsGuest   = typeof enterAsGuest   !== 'undefined' ? enterAsGuest   : null;
+  window._fn_openEditPanel  = typeof openEditPanel  !== 'undefined' ? openEditPanel  : null;
+  window._fn_closeEditPanel = typeof closeEditPanel !== 'undefined' ? closeEditPanel : null;
 
   // ══════════════════════════════════════════════════════
   //  INIT
