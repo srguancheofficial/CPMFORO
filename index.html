@@ -2125,6 +2125,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!text) return;
     if (!profile.username) { switchTab('perfil'); return; }
 
+    // Comprobar si ha aceptado las normas
+    if (!localStorage.getItem('normas_aceptadas')) {
+      mostrarNormas(text);
+      return;
+    }
+
     chatInput.value = '';
     chatSend.disabled = true;
     try {
@@ -2241,11 +2247,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
       window._pendingReg = null;
       regAvatarFile      = null;
-      isGuest            = false;
+      // Mostrar modal de verificación de email
       hideLogin();
-      applyProfile();
-      updateChatUI();
-      initChat();
+      const evOv = document.getElementById('email-verify-overlay');
+      if (evOv) evOv.style.display = 'flex';
     } catch (err) {
       errEl.textContent = err.message;
     } finally {
@@ -2391,6 +2396,92 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('daily-notif-btn').addEventListener('click', dismissDailyNotif);
   document.getElementById('daily-notif-close').addEventListener('click', dismissDailyNotif);
 
+  // ── Normas del foro ──
+  let _pendingMsgAfterNormas = null;
+
+  function mostrarNormas(pendingText) {
+    _pendingMsgAfterNormas = pendingText || null;
+    const overlay  = document.getElementById('normas-overlay');
+    const scroll   = document.getElementById('normas-scroll');
+    const btn      = document.getElementById('normas-aceptar-btn');
+    const countdown = document.getElementById('normas-countdown');
+
+    overlay.style.display = 'flex';
+    btn.disabled = true;
+    btn.style.background = '#fff';
+    btn.style.color = '#333';
+    btn.style.cursor = 'not-allowed';
+    btn.style.opacity = '0.6';
+    btn.textContent = '';
+    const span = document.createElement('span');
+    span.id = 'normas-countdown';
+    span.textContent = '5';
+    btn.appendChild(document.createTextNode('Espera '));
+    btn.appendChild(span);
+    btn.appendChild(document.createTextNode('s'));
+
+    // Esperar a que el usuario baje hasta el final
+    let scrolledToBottom = false;
+    let countdownStarted = false;
+    let seconds = 5;
+    let timer = null;
+
+    function startCountdown() {
+      if (countdownStarted) return;
+      countdownStarted = true;
+      timer = setInterval(() => {
+        seconds--;
+        const cd = document.getElementById('normas-countdown');
+        if (cd) cd.textContent = seconds;
+        if (seconds <= 0) {
+          clearInterval(timer);
+          btn.disabled = false;
+          btn.style.background = '#3AAEE0';
+          btn.style.color = '#fff';
+          btn.style.cursor = 'pointer';
+          btn.style.opacity = '1';
+          btn.textContent = 'Aceptar';
+        }
+      }, 1000);
+    }
+
+    scroll.addEventListener('scroll', function onScroll() {
+      const atBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 30;
+      if (atBottom && !scrolledToBottom) {
+        scrolledToBottom = true;
+        startCountdown();
+        scroll.removeEventListener('scroll', onScroll);
+      }
+    });
+
+    btn.onclick = async function() {
+      if (btn.disabled) return;
+      localStorage.setItem('normas_aceptadas', '1');
+      overlay.style.display = 'none';
+      // Enviar el mensaje que estaba pendiente
+      if (_pendingMsgAfterNormas) {
+        const text = _pendingMsgAfterNormas;
+        _pendingMsgAfterNormas = null;
+        const chatInput = document.getElementById('chat-input');
+        const chatSend  = document.getElementById('chat-send');
+        if (chatInput) chatInput.value = '';
+        if (chatSend)  chatSend.disabled = true;
+        try {
+          await SupaForo.postMessage(authUser.id, text);
+          profile.total_messages = (profile.total_messages || 0) + 1;
+          if (profile.total_messages < msgsForLevel(100)) {
+            profile.level = calcLevel(profile.total_messages);
+          }
+          updateLevelUI();
+        } catch (err) {
+          alert('Error al enviar: ' + err.message);
+        } finally {
+          if (chatSend) chatSend.disabled = false;
+        }
+      }
+    };
+  }
+
   // Registrar funciones reales para los stubs del head
   window._fn_enterAsGuest   = typeof enterAsGuest   !== 'undefined' ? enterAsGuest   : null;
   window._fn_openEditPanel  = typeof openEditPanel  !== 'undefined' ? openEditPanel  : null;
@@ -2434,6 +2525,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
 });
 </script>
+
+
+<!-- ── MODAL NORMAS DEL FORO ── -->
+<div id="normas-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:none;align-items:center;justify-content:center;">
+  <div style="background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;max-width:560px;width:90%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+    <div style="padding:20px 24px 12px;border-bottom:1px solid #2a2a4a;flex-shrink:0;">
+      <h2 style="margin:0;color:#fff;font-size:1.2rem;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">📋 NORMAS DEL FORO</h2>
+      <p style="margin:4px 0 0;color:#888;font-size:0.8rem;">Lee las normas antes de participar en el chat.</p>
+    </div>
+    <div id="normas-scroll" style="overflow-y:auto;padding:20px 24px;flex:1;color:#ccc;font-size:0.88rem;line-height:1.7;">
+      <p><strong style="color:#fff;">Bienvenido al foro.</strong> Este espacio está creado para que la comunidad pueda compartir información, resolver dudas y disfrutar del juego en un ambiente agradable. Al participar, aceptas cumplir las siguientes normas:</p>
+      <p><strong style="color:#e8b94f;">1. Respeta a los demás usuarios</strong><br>No se permiten insultos, amenazas, acoso, discriminación ni comportamientos destinados a provocar conflictos.</p>
+      <p><strong style="color:#e8b94f;">2. Prohibido el spam</strong><br>No publiques mensajes repetitivos, publicidad no autorizada, enlaces engañosos o contenido destinado únicamente a promocionar otros servicios.</p>
+      <p><strong style="color:#e8b94f;">3. Mantén el contenido relacionado con la temática</strong><br>Publica cada tema en la categoría correspondiente y evita desviar las conversaciones hacia asuntos no relacionados.</p>
+      <p><strong style="color:#e8b94f;">4. No compartas información personal</strong><br>Por tu seguridad y la de otros usuarios, no publiques datos personales como direcciones, teléfonos, correos electrónicos o contraseñas.</p>
+      <p><strong style="color:#e8b94f;">5. Prohibido el contenido ilegal o inapropiado</strong><br>No está permitido compartir contenido ilegal, ofensivo, violento, pornográfico, malicioso o que infrinja derechos de terceros.</p>
+      <p><strong style="color:#e8b94f;">6. No suplantes a otras personas</strong><br>No te hagas pasar por otros usuarios, miembros del equipo de moderación o personas conocidas.</p>
+      <p><strong style="color:#e8b94f;">7. Utiliza un lenguaje adecuado</strong><br>Se permite el debate y la opinión, pero siempre desde el respeto y la educación.</p>
+      <p><strong style="color:#e8b94f;">8. Respeta las decisiones de moderación</strong><br>Los moderadores y administradores podrán editar, mover o eliminar contenido que incumpla las normas, así como aplicar sanciones cuando sea necesario.</p>
+      <p><strong style="color:#e8b94f;">9. Reporta los problemas</strong><br>Si encuentras contenido que incumpla las normas, utiliza las herramientas de reporte o contacta con el equipo de moderación.</p>
+      <p><strong style="color:#e8b94f;">10. Sanciones</strong><br>El incumplimiento de estas normas puede conllevar advertencias, suspensión temporal o expulsión permanente del foro, dependiendo de la gravedad de la infracción.</p>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid #2a2a4a;display:flex;justify-content:flex-end;flex-shrink:0;">
+      <button id="normas-aceptar-btn" disabled style="
+        background:#fff;color:#333;border:none;border-radius:8px;
+        padding:10px 28px;font-size:0.9rem;font-weight:700;
+        cursor:not-allowed;opacity:0.6;transition:all 0.3s;
+        font-family:'Barlow',sans-serif;
+      ">Espera <span id="normas-countdown">5</span>s</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL VERIFICACIÓN EMAIL ── -->
+<div id="email-verify-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;max-width:420px;width:90%;padding:36px 32px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+    <div style="font-size:3rem;margin-bottom:16px;">📧</div>
+    <h2 style="color:#fff;margin:0 0 12px;font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;letter-spacing:1px;">REVISA TU EMAIL</h2>
+    <p style="color:#ccc;font-size:0.9rem;line-height:1.6;margin:0 0 24px;">Hemos enviado un enlace de verificación a tu correo. <strong style="color:#fff;">Ábrelo y confirma tu cuenta</strong> antes de iniciar sesión.</p>
+    <p style="color:#888;font-size:0.8rem;margin:0 0 24px;">Si no lo ves, revisa la carpeta de spam.</p>
+    <button onclick="document.getElementById('email-verify-overlay').style.display='none';" style="
+      background:#3AAEE0;color:#fff;border:none;border-radius:8px;
+      padding:12px 32px;font-size:0.95rem;font-weight:700;cursor:pointer;
+      font-family:'Barlow',sans-serif;width:100%;
+    ">Entendido</button>
+  </div>
+</div>
 
 </body>
 </html>
